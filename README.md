@@ -13,7 +13,7 @@ py -3.11 -m pip install streamlit streamlit-folium folium
 
 # 3. Instalar dependencias de IA y utilidades
 py -3.11 -m pip install openai pandas python-dotenv
-
+```
 ## Cómo ejecutar la aplicación
 
 Cada vez que desees iniciar el chatbot, abre la terminal en la carpeta del proyecto y ejecuta:
