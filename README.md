@@ -1,4 +1,4 @@
-## Requisitos de Instalaciónasdasd
+## Requisitos de Instalación
 
 Este proyecto está optimizado para funcionar con **Python 3.11** (Streamlit garantiza estabilidad hasta la versión 3.12). 
 
