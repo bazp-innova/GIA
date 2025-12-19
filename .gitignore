@@ -1,7 +1,17 @@
+# --- Seguridad y Entorno ---
 .env
 .venv/
 venv/
+
+# --- Python e IA ---
 __pycache__/
 *.pyc
 *.log
+llm_error.log
 vectorstore/
+# --- CARPETA DATA ---
+# Primero ignoramos todo el contenido de la carpeta data
+data/*
+
+# Luego creamos la excepción para el archivo Markdown
+!data/*.md

@@ -2,31 +2,25 @@ import os
 import base64
 from pathlib import Path
 import streamlit as st
-from PyPDF2 import PdfReader
 from openai import OpenAI
+from dotenv import load_dotenv  # <--- NUEVA LIBRERÍA
 
-# ---------- 🔑 CONFIGURACIÓN API KEY 🔑 ----------
-MI_API_KEY = "TU-API-KEY-AQUI" 
-os.environ["OPENAI_API_KEY"] = MI_API_KEY
-# ------------------------------------------------
+# ---------- 🔑 CARGA DE VARIABLES DE ENTORNO 🔑 ----------
+# Esto busca el archivo .env y carga las variables en el sistema
+load_dotenv()
+MI_API_KEY = os.getenv("OPENAI_API_KEY")
+# --------------------------------------------------------
 
 # ---------- DEFINICIÓN DE RUTAS ----------
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
 ASSETS_DIR = BASE_DIR / "assets"
-PDF_PATH = DATA_DIR / "Política y Procedimiento Personas - Beneficios. 2025.pdf"
+MD_PATH = DATA_DIR / "Política y Procedimiento Personas - Beneficios.2025.md"
 
-# 1. IMAGEN PARA EL TÍTULO (Logo GeoInnova - Rectángulo Rojo)
 LOGO_PATH = ASSETS_DIR / "0.png" 
-
-# 2. IMAGEN PARA EL CHAT (Avatar de GIA - Rectángulo Azul)
-# NOTA: Asegúrate de que este archivo exista en la carpeta assets.
-# Te recomiendo renombrar tu archivo largo a "gia_avatar.png"
-AVATAR_FILENAME = "ABS2GSmt7b7Sr4iYhuLYWh6E1OusDIWhbmTr__1WlmLtyh2cynvh8C_7OhaIzsj5PPSVpVkEbJKP2eY9vsz49aYtmQYH4oM23l7JSyyt0dB2y2iU3wZ4gJYYjduUMoQgpNCG3GpM68AdEkviTEpxiKkbG5fIqmxeOUu6k0GBusFLtq4x0LyGs1024-rj.png"
-# Si prefieres usar el nombre original largo, cambia la línea de arriba por:
-# AVATAR_FILENAME = "ChatGPT Image 10 dic 2025, 04_42_04 p.m..png"
-
+AVATAR_FILENAME = "gia-topo.png"
 AVATAR_PATH = ASSETS_DIR / AVATAR_FILENAME
+USER_AVATAR_PATH = ASSETS_DIR / "imagen-user.png"
 
 # ---------- CONFIGURACIÓN DE PÁGINA ----------
 st.set_page_config(
@@ -84,68 +78,67 @@ else:
 
 st.markdown("<div class='subtitle'>Hola, soy <b>GIA</b>. Pregúntame lo que necesites sobre la empresa.</div>", unsafe_allow_html=True)
 
-# ---------- LÓGICA DE DATOS Y IA ----------
+# ---------- LÓGICA DE DATOS ----------
 @st.cache_data
-def cargar_conocimiento_pdf(filepath):
+def cargar_conocimiento_md(filepath):
     if not filepath.exists(): return None
     try:
-        reader = PdfReader(str(filepath))
-        text = ""
-        for page in reader.pages: text += page.extract_text() + "\n"
-        return text
-    except Exception as e: return f"Error PDF: {e}"
+        with open(filepath, "r", encoding="utf-8") as f:
+            return f.read()
+    except Exception as e: return f"Error: {e}"
 
-CONOCIMIENTO_BASE = cargar_conocimiento_pdf(PDF_PATH)
+CONOCIMIENTO_BASE = cargar_conocimiento_md(MD_PATH)
 
 if not CONOCIMIENTO_BASE:
-    st.error(f"⚠️ No se encontró el documento: {PDF_PATH}")
+    st.error(f"⚠️ No se encontró el archivo Markdown en: {MD_PATH}")
     st.stop()
 
 def answer_query(prompt: str):
-    api_key = os.environ.get("OPENAI_API_KEY")
-    if not api_key: return "⚠️ Falta API Key."
+    # Ya no necesitamos os.environ aquí, usamos la variable MI_API_KEY cargada arriba
+    if not MI_API_KEY: 
+        return "⚠️ Error: No se encontró la OPENAI_API_KEY en el archivo .env"
     
-    client = OpenAI(api_key=api_key)
+    client = OpenAI(api_key=MI_API_KEY)
+    
     system_prompt = f"""
-    Eres GIA, asistente virtual de GeoInnova.
-    Responde dudas basándote en el siguiente texto.
-    Si no sabes la respuesta, indícalo.
-    
-    DOCUMENTO:
-    {CONOCIMIENTO_BASE[:50000]}
+    Eres GIA, la asistente virtual de GeoInnova.
+    Responde basándote en este documento:
+    {CONOCIMIENTO_BASE}
     """
+    
     messages = [{"role": "system", "content": system_prompt}]
     for msg in st.session_state.messages[-4:]:
         messages.append({"role": msg["role"], "content": msg["content"]})
     messages.append({"role": "user", "content": prompt})
 
     try:
-        resp = client.chat.completions.create(model="gpt-4o-mini", messages=messages, temperature=0.0)
+        resp = client.chat.completions.create(model="gpt-4o-mini", messages=messages, temperature=0.2)
         return resp.choices[0].message.content
     except Exception as e: return f"Error: {e}"
 
-# ---------- INTERFAZ DE CHAT (CON AVATAR PERSONALIZADO) ----------
+# ---------- INTERFAZ DE CHAT ----------
 if "messages" not in st.session_state:
     st.session_state.messages = [
         {"role": "assistant", "content": "¡Hola! Soy **GIA**. ¿En qué puedo ayudarte hoy?"}
     ]
 
-# Definimos cuál imagen usar para el avatar del asistente
-# Aquí usamos AVATAR_PATH (la nueva imagen que subiste)
 assistant_avatar = str(AVATAR_PATH) if AVATAR_PATH.exists() else "🤖"
+user_avatar = str(USER_AVATAR_PATH) if USER_AVATAR_PATH.exists() else "👤"
 
 for msg in st.session_state.messages:
-    # Si el mensaje es del asistente, usamos tu imagen nueva. Si es usuario, dejamos None (default)
     avatar_icon = assistant_avatar if msg["role"] == "assistant" else None
-    
     with st.chat_message(msg["role"], avatar=avatar_icon):
         st.markdown(msg["content"])
 
 if prompt := st.chat_input("Escribe tu pregunta..."):
+    # Guardar mensaje del usuario
     st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
+    
+    # Mostrar mensaje del usuario inmediatamente con su nuevo avatar verde agua
+    with st.chat_message("user", avatar=user_avatar):
         st.markdown(prompt)
 
+    # Respuesta del asistente
     with st.chat_message("assistant", avatar=assistant_avatar):
         with st.spinner("GIA está pensando..."):
             respuesta = answer_query(prompt)
